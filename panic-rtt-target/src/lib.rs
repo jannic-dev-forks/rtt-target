@@ -69,7 +69,25 @@ fn panic(info: &PanicInfo) -> ! {
     }
 }
 
-#[cfg(not(any(feature = "cortex-m")))]
+#[cfg(feature = "critical-section")]
+#[inline(never)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    // Safety: We will never leave this critical section
+    unsafe { critical_section::acquire() };
+
+    if let Some(mut channel) = unsafe { UpChannel::conjure(0) } {
+        channel.set_mode(ChannelMode::BlockIfFull);
+
+        writeln!(channel, "{}", info).ok();
+    }
+
+    loop {
+        compiler_fence(SeqCst);
+    }
+}
+
+#[cfg(not(any(feature = "cortex-m", feature = "critical-section")))]
 compile_error!(concat!(
     "You must specify a platform feature for panic-rtt-target, such as 'cortex-m'.\r\n",
     "Example:\r\n",

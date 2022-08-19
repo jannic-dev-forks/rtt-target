@@ -76,6 +76,15 @@ pub fn set_print_channel(channel: UpChannel) {
         );
     }
 }
+#[cfg(any(feature = "critical-section"))]
+pub fn set_print_channel(channel: UpChannel) {
+    unsafe {
+        set_print_channel_cs(
+            channel,
+            &((|arg, f| critical_section::with(|_| f(arg))) as CriticalSectionFunc),
+        );
+    }
+}
 
 /// Public due to access from macro.
 #[doc(hidden)]
@@ -180,7 +189,7 @@ macro_rules! rprintln {
 ///
 /// This macro is defined only if the [`set_print_channel`] function is available, i.e. if you have
 /// enabled a platform support feature.
-#[cfg(any(feature = "cortex-m", feature = "riscv"))]
+#[cfg(any(feature = "cortex-m", feature = "riscv", feature = "critical-section"))]
 #[macro_export]
 macro_rules! rtt_init_print {
     ($mode:ident, $size:literal) => {
@@ -208,7 +217,7 @@ macro_rules! rtt_init_print {
 
 /// This version of the macro only is defined if no platform support feature is enabled and outputs
 /// a more friendly error message.
-#[cfg(not(any(feature = "cortex-m", feature = "riscv")))]
+#[cfg(not(any(feature = "cortex-m", feature = "riscv", feature = "critical-section")))]
 #[macro_export]
 macro_rules! rtt_init_print {
     ($($_:tt)*) => {
@@ -220,6 +229,8 @@ macro_rules! rtt_init_print {
             "    rtt-target = { version = \"x.y.z\", features = [\"cortex-m\"] }\r\n",
             "    # or",
             "    rtt-target = { version = \"x.y.z\", features = [\"riscv\"] }\r\n",
+            "    # or",
+            "    rtt-target = { version = \"x.y.z\", features = [\"critical-section\"] }\r\n",
             "- OR use set_print_channel_cs() instead if you want to provide your own locking.\r\n"
         ))
     };
